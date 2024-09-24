@@ -1,0 +1,7 @@
+.DS_Store
+dist/
+.vscode/
+secret.txt
+node_modules/
+dist/
+*.flac
