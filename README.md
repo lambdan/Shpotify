@@ -31,6 +31,8 @@ Backend:
 - Store user data (playlists, liked songs, etc)
 - Sync user data between clients
 - Stream to clients (ffmpeg)
+- Open API
+  - Will make making clients easier
 
 Clients:
 
@@ -47,3 +49,7 @@ Clients:
 **How can I access this when I'm not home?**
 
 Use something like [Tailscale](https://tailscale.com/) or other VPN solution. Tailscale is very "set it and forget it".
+
+# Env Variables
+
+- MARIADB_HOST

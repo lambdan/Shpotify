@@ -1,29 +1,21 @@
 import express, { Request, Response } from "express";
 import multer from "multer";
-import { Uploader } from "./uploader";
-import { createHash } from "crypto";
-import { createReadStream, ReadStream, unlink } from "fs";
+import { MinioLibrary as shMinioClient } from "./shMinioClient";
+
+import { md5ReadStream } from "./utils";
+import { createReadStream, unlink } from "fs";
 import path from "path";
-
-function createMD5(stream: ReadStream): Promise<string> {
-  return new Promise((res, rej) => {
-    const hash = createHash("md5");
-
-    stream.on("data", (data) => {
-      hash.update(data);
-    });
-    stream.on("end", () => {
-      res(hash.digest("hex"));
-    });
-  });
-}
+import { env } from "process";
+import { Backend } from "./backend";
 
 const app = express();
 const port = 3000;
-const minioUploader = new Uploader("sourcefiles", "http://localhost:19000");
+const BUCKET = "sourcefiles";
+const MINIO_URL = "http://localhost:19000";
+const minioClient = new shMinioClient(MINIO_URL);
 const multerUpload = multer({ dest: "uploads/" });
+const backend = new Backend();
 
-// File upload endpoint
 app.post(
   "/upload",
   multerUpload.single("file"),
@@ -32,16 +24,22 @@ app.post(
       return res.status(400).send("No file uploaded.");
     }
     const file = req.file;
-    const ext = path.extname(req.file.originalname);
+    const ext = path.extname(req.file.originalname).toLowerCase();
 
-    const md5 = await createMD5(createReadStream(file.path));
+    const md5 = await md5ReadStream(createReadStream(file.path));
     const fileName = md5 + ext; //file.originalname;
 
-    const upl = await minioUploader.uploadFileStream(
+    /*const exist = await minioClient.fileExists(BUCKET, fileName);
+    if (exist) {
+      res.status(400).send("File already existed");
+      return;
+    }*/
+
+    const upl = await minioClient.uploadFileStream(
+      BUCKET,
       createReadStream(file.path),
       fileName
     );
-    console.log(upl);
 
     unlink(file.path, (err) => {
       // remove multer upload
@@ -50,6 +48,9 @@ app.post(
         console.error(err);
       }
     });
+
+    backend.newSourceFile(upl);
+    res.status(200).send("Uploaded!");
   }
 );
 

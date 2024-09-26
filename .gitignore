@@ -5,3 +5,4 @@ secret.txt
 node_modules/
 dist/
 *.flac
+*.mp3
