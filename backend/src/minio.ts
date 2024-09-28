@@ -1,7 +1,7 @@
 import { ReadStream } from "fs";
 import { Client, ClientOptions } from "minio";
 
-export class MinioLibrary {
+export class MinioClient {
   private minioClient: Client;
   private url: string;
 
@@ -22,6 +22,13 @@ export class MinioLibrary {
     }
   }
 
+  /**
+   *
+   * @param bucket
+   * @param stream
+   * @param fileName
+   * @returns URL to uploaded file
+   */
   public async uploadFileStream(
     bucket: string,
     stream: ReadStream,

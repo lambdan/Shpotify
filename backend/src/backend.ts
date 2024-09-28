@@ -1,5 +1,5 @@
 import { env } from "process";
-import { shMysqlClient } from "./shMysql";
+import { mysqlClient } from "./mysql";
 import Ffmpeg, { FfprobeFormat } from "fluent-ffmpeg";
 import {
   SongData,
@@ -8,12 +8,39 @@ import {
   zSongData,
   zSongMetadata,
 } from "./zModels";
+import { rabbitClient } from "./rabbit";
+import { Message } from "amqplib";
 
 export class Backend {
-  private sqlClient: shMysqlClient;
+  private sqlClient: mysqlClient;
+  private rabbitClient: rabbitClient;
 
   constructor() {
-    this.sqlClient = new shMysqlClient(env.MARIADB_HOST || "localhost");
+    this.sqlClient = new mysqlClient(env.MARIADB_HOST || "localhost");
+    this.rabbitClient = new rabbitClient("backend");
+
+    this.rabbitClient.eventEmitter.on("connected", () => {
+      this.setupCallbacks();
+    });
+
+    this.rabbitClient.eventEmitter.on("disconnected", () => {
+      // TODO
+    });
+
+    this.rabbitClient.startReconnectLoop();
+  }
+
+  private async setupCallbacks() {
+    await this.rabbitClient.subscribe("uploads", async (message: Message) => {
+      const a = await this.newSourceFile(
+        JSON.parse(message.content.toString()).url
+      );
+      if (a == true) {
+        this.rabbitClient.ack(message);
+      } else {
+        this.rabbitClient.nack(message);
+      }
+    });
   }
 
   public async prepareSongsDatabase() {
@@ -56,7 +83,7 @@ export class Backend {
         sm.duration = parseFloat(e.duration!);
       }
 
-      if (e.codec_name == "mjpeg") {
+      if (e.codec_name == "mjpeg" || e.codec_name == "png") {
         // TODO steal cover art
       }
     });
@@ -104,15 +131,23 @@ export class Backend {
     });
   }
 
-  public async newSourceFile(url: string) {
-    console.warn("Got new source file", url);
-    await this.prepareSongsDatabase();
+  public async newSourceFile(url: string): Promise<boolean> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        console.warn("Got new source file", url);
+        await this.prepareSongsDatabase();
 
-    const probed = await this.ffprobe(url);
-    const songData = this.getSongData(probed);
+        const probed = await this.ffprobe(url);
+        const songData = this.getSongData(probed);
 
-    const sql = `insert into songs (url,songData,ffprobe) values (?,?,?)`;
-    const vals = [url, JSON.stringify(songData), JSON.stringify(probed)];
-    await this.sqlClient.query(sql, vals);
+        const sql = `insert into songs (url,songData,ffprobe) values (?,?,?)`;
+        const vals = [url, JSON.stringify(songData), JSON.stringify(probed)];
+        await this.sqlClient.query(sql, vals);
+
+        resolve(true);
+      } catch (err) {
+        reject(err);
+      }
+    });
   }
 }

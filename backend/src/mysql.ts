@@ -1,6 +1,6 @@
 import { Connection, createConnection, QueryResult } from "mysql2/promise";
 
-export class shMysqlClient {
+export class mysqlClient {
   private user: string;
   private password: string;
   private host: string;
