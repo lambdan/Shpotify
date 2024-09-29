@@ -23,23 +23,22 @@ export class MinioClient {
   }
 
   /**
-   *
+   * Uploads a Buffer into a file, and returns URL
    * @param bucket
-   * @param stream
+   * @param buffer
    * @param fileName
    * @returns URL to uploaded file
    */
-  public async uploadFileStream(
+  public async uploadBuffer(
     bucket: string,
-    stream: ReadStream,
+    buffer: Buffer,
     fileName: string
   ): Promise<string> {
     return new Promise(async (resolve, reject) => {
       try {
         await this.makeBucket(bucket);
-        await this.minioClient.putObject(bucket, fileName, stream);
+        await this.minioClient.putObject(bucket, fileName, buffer);
         const fileUrl = `${this.url}/${bucket}/${fileName}`;
-        console.log("uploaded file stream");
         resolve(fileUrl);
       } catch (err) {
         reject(err);
@@ -47,30 +46,15 @@ export class MinioClient {
     });
   }
 
-  /*public async uploadFilePath(bucket: string, filePath: string, urlPrefix: string): Promise<string> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        await this.makeBucket(bucket);
-        const objName = path.parse(filePath).base;
-        await this.minioClient.fPutObject(this.bucket, objName, filePath);
-        const fileUrl = `${urlPrefix}/${this.bucket}/${objName}`;
-        //console.log('Uploaded', filePath, 'to', fileUrl);
-        resolve(fileUrl);
-      } catch (err) {
-        reject(err);
-      }
-    });
-  }*/
-
   public async fileExists(bucket: string, fileName: string): Promise<boolean> {
     return new Promise(async (resolve, reject) => {
       try {
         await this.minioClient.statObject(bucket, fileName);
         resolve(true);
       } catch (err) {
-        resolve(false);
+        //
       }
+      resolve(false);
     });
-    return false;
   }
 }

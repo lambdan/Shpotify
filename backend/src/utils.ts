@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
-import { ffprobe, FfprobeData } from "fluent-ffmpeg";
+import { create } from "domain";
+import { FfmpegCommand, ffprobe, FfprobeData } from "fluent-ffmpeg";
 import { ReadStream } from "fs";
 
 /**
@@ -7,17 +8,8 @@ import { ReadStream } from "fs";
  * @param stream
  * @returns md5 string
  */
-export function md5ReadStream(stream: ReadStream): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const hash = createHash("md5");
-
-    stream.on("data", (data) => {
-      hash.update(data);
-    });
-    stream.on("end", () => {
-      resolve(hash.digest("hex"));
-    });
-  });
+export function md5FromBuffer(buffer: Buffer): string {
+  return createHash("md5").update(buffer).digest("hex").toLowerCase();
 }
 
 export function sleep(ms: number): Promise<void> {
@@ -37,5 +29,23 @@ export async function async_ffprobe(url: string): Promise<FfprobeData> {
       }
       reject(err);
     });
+  });
+}
+
+/** Runs a ffmpeg command and resolves when its done */
+export async function async_ffmpeg_buffer(
+  command: FfmpegCommand
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    command.on("start", function (commandLine) {
+      console.log(commandLine);
+    });
+    command.on("error", (err) => {
+      reject(err);
+    });
+    command.on("end", () => {
+      resolve();
+    });
+    command.run();
   });
 }

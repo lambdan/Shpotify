@@ -7,3 +7,4 @@ dist/
 *.flac
 *.mp3
 backend/uploads
+*.m4a

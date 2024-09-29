@@ -6,7 +6,7 @@ export const zSongMetadata = z.object({
   artist: z.string().default(""),
   album: z.string().default(""),
   album_artist: z.string().default(""),
-  cover_url: z.string().optional().default(""),
+  cover_filename: z.string().optional().default(""),
   date: z.string().default(""),
   disc: z.number().default(-1),
   duration: z.number().default(-1),
@@ -15,8 +15,12 @@ export const zSongMetadata = z.object({
 });
 export type SongMetadata = z.infer<typeof zSongMetadata>;
 
-
-
+export const zStreamRequest = z.object({
+  source_id: z.coerce.number(),
+  codec: z.string().default("mp3"),
+  bitrate: z.coerce.number().default(128),
+});
+export type StreamRequest = z.infer<typeof zStreamRequest>;
 
 //
 // Rabbit message types
@@ -55,6 +59,13 @@ export const zSongMetadataMapping = z.object({
   metadata_id: z.number(),
 });
 export type SongMetadataMapping = z.infer<typeof zSongMetadataMapping>;
+
+export const zAPIMiscJobs = z.enum(["rescan_all_meta"]);
+export type APIMiscJobs = z.infer<typeof zAPIMiscJobs>;
+
+export const apiScanSchema = z.object({
+  id: z.coerce.number(),
+});
 
 /* example ffprobe output:
     "streams": [

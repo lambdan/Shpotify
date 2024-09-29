@@ -15,7 +15,7 @@ export class GlobalVars {
 
   readonly MINIO_URL: string;
   readonly SOURCE_FILES_BUCKET: string;
-  readonly UPLOADER_PORT: number;
+  readonly API_PORT: number;
 
   readonly DEV_RESET_TABLES: boolean; // Drops all tables on restarts if true
 
@@ -32,6 +32,6 @@ export class GlobalVars {
 
     this.MINIO_URL = "http://localhost:19000";
     this.SOURCE_FILES_BUCKET = "sourcefiles";
-    this.UPLOADER_PORT = 3000;
+    this.API_PORT = 3000;
   }
 }

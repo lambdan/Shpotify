@@ -12,6 +12,9 @@ import {
   zrSongUploadJob,
   zSongMetadata,
   dbSourceFileReturn,
+  zStreamRequest,
+  StreamRequest,
+  zAPIMiscJobs,
 } from "./zModels";
 import { rabbitClient } from "./rabbit";
 import { Message } from "amqplib";
@@ -22,7 +25,7 @@ import { GlobalVars } from "./vars";
 
 const VARS = new GlobalVars();
 
-export class SongUploadWorker {
+export class ShpotifyBackend {
   private sqlClient: mysqlClient;
   private rabbit: rabbitClient;
 
@@ -71,8 +74,10 @@ export class SongUploadWorker {
 
     await this.rabbit.subscribe(VARS.MISC_QUEUE, async (message: Message) => {
       const m = message.content.toString();
-      if (m == "rescan_all_meta") {
-        await this.rescanAllMeta();
+      const job = zAPIMiscJobs.parse(m);
+      switch (job) {
+        case zAPIMiscJobs.Enum.rescan_all_meta:
+          await this.rescanAllMeta();
       }
       await this.rabbit.ack(message);
     });
@@ -105,7 +110,7 @@ export class SongUploadWorker {
         artist TEXT,
         album TEXT,
         album_artist TEXT,
-        cover_url TEXT,
+        cover_filename TEXT,
         date TEXT,
         disc INT,
         duration FLOAT,
@@ -147,7 +152,7 @@ export class SongUploadWorker {
    * @param id
    * @returns
    */
-  private async getSourceFileByID(id: number): Promise<dbSourceFile> {
+  public async getSourceFileByID(id: number): Promise<dbSourceFile | null> {
     return new Promise(async (resolve, reject) => {
       try {
         const query = await this.sqlClient.query(
@@ -159,7 +164,7 @@ export class SongUploadWorker {
         );
         resolve(result);
       } catch (err) {
-        reject(err);
+        resolve(null);
       }
     });
   }
@@ -173,7 +178,7 @@ export class SongUploadWorker {
     return new Promise(async (resolve, reject) => {
       try {
         const sql = `insert into \`${VARS.SONG_METADATA_TABLE}\` 
-         (artist, album, album_artist, cover_url, date, disc, duration, title, track) 
+         (artist, album, album_artist, cover_filename, date, disc, duration, title, track) 
           values 
           (?,?,?,?,?,?,?,?,?)
           `;
@@ -181,7 +186,7 @@ export class SongUploadWorker {
           meta.artist,
           meta.album,
           meta.album_artist,
-          meta.cover_url,
+          meta.cover_filename,
           meta.date,
           meta.disc,
           meta.duration,
@@ -206,6 +211,7 @@ export class SongUploadWorker {
 
       if (e.codec_name == "mjpeg" || e.codec_name == "png") {
         // TODO steal cover art
+        // ffmpeg -i SONG.mp3  -c:v copy -an -sn -map_metadata -1 OUT.jpg
       }
     });
 
@@ -276,7 +282,7 @@ export class SongUploadWorker {
       `REPLACE INTO \`${VARS.SONG_METADATA_MAP_TABLE}\` (source_id,metadata_id) VALUES (?,?)`,
       [source_id, metadata_id]
     );
-    console.log(q);
+    //console.log(q);
   }
 
   /**
@@ -286,10 +292,14 @@ export class SongUploadWorker {
   private async scanForMetadata(scanJob: rSongScanJob) {
     //console.log(result);
     const row = await this.getSourceFileByID(scanJob.source_id);
+    if (!row) {
+      console.error("Row didnt exist");
+      return;
+    }
     const ffprobe_data = JSON.parse(row.ffprobe) as FfprobeData;
     const meta = this.readMetadataFromFfprobe(ffprobe_data);
 
-    console.log(meta);
+    //console.log(meta);
 
     const song_id = scanJob.source_id;
     const metadata_id = await this.insertSongMetadata(meta);
@@ -299,29 +309,24 @@ export class SongUploadWorker {
   /**
    * Returns all source file IDs
    */
-  private async getAllSourceFileIDs(): Promise<number[]> {
+  private async getAllSourceFiles(): Promise<dbSourceFileReturn[]> {
     const q = await this.sqlClient.query(
       `SELECT * FROM \`${VARS.SOURCE_FILES_TABLE}\` `
     );
-    const rows = (q as RowDataPacket[])[0] as dbSourceFileReturn[]; // fuck me
-    const result = new Array<number>();
-    rows.forEach((r) => {
-      result.push(r.id);
-    });
-    return result;
+    return (q as RowDataPacket[])[0] as dbSourceFileReturn[]; // fuck me
   }
 
   /**
    * Grabs all source file IDs, and then queues a scanMetadata job on them
    */
   private async rescanAllMeta() {
-    const ids = await this.getAllSourceFileIDs();
+    const ids = await this.getAllSourceFiles();
     ids.forEach(async (id) => {
       await this.rabbit.publish(
         VARS.SCAN_JOBS_QUEUE,
         JSON.stringify(
           zrSongScanJob.parse({
-            source_id: id,
+            source_id: id.id,
           })
         )
       );

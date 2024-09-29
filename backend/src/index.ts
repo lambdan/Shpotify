@@ -1,5 +1,5 @@
-import { SongUploadWorker as Backend } from "./backend";
-import { shUploader as Uploader } from "./upload";
+import { ShpotifyAPI } from "./api";
+import { ShpotifyBackend as Backend } from "./backend";
 
 const backend = new Backend();
-const uploader = new Uploader();
+const api = new ShpotifyAPI(backend);
