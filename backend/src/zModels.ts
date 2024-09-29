@@ -3,29 +3,58 @@ import { extendZodWithOpenApi } from "zod-openapi";
 extendZodWithOpenApi(z);
 
 export const zSongMetadata = z.object({
-  title: z.string().default("?"),
-  artist: z.string().default("?"),
-  album: z.string().optional(),
-  album_artist: z.string().optional(),
-  track: z.number().optional(),
-  disc: z.number().optional(),
-  date: z.date().optional(),
-  duration: z.number().default(0),
-  art_url: z.string().optional().default("https://placehold.co/500"),
+  artist: z.string().default(""),
+  album: z.string().default(""),
+  album_artist: z.string().default(""),
+  cover_url: z.string().optional().default(""),
+  date: z.string().default(""),
+  disc: z.number().default(-1),
+  duration: z.number().default(-1),
+  title: z.string().default(""),
+  track: z.number().default(-1),
 });
 export type SongMetadata = z.infer<typeof zSongMetadata>;
 
-export const zFileInfo = z.object({
-  codec: z.string().optional(),
-  bitrate: z.number().optional(),
-});
-export type FileInfo = z.infer<typeof zFileInfo>;
 
-export const zSongData = z.object({
-  songMetadata: zSongMetadata,
-  fileInfo: zFileInfo,
+
+
+//
+// Rabbit message types
+//
+
+export const zrSongUploadJob = z.object({
+  url: z.string().url().default("URL to file in bucket"),
 });
-export type SongData = z.infer<typeof zSongData>;
+export type rSongUploadJob = z.infer<typeof zrSongUploadJob>;
+
+export const zrSongScanJob = z.object({
+  source_id: z.number().describe("ID of song in database"),
+});
+export type rSongScanJob = z.infer<typeof zrSongScanJob>;
+
+//
+// DB types
+//
+// TODO: Theres probably a way to make MySQL use them automatically
+
+export const zdbSourceFileInsert = z.object({
+  filename: z.string().min(5).describe("Base filename (eg song.mp3)"), // x.ext
+  ffprobe: z.string().describe("Stringified JSON output of ffprobe"),
+});
+export type dbSourceFileInsert = z.infer<typeof zdbSourceFileInsert>;
+
+export const zdbSourceFileReturn = z.object({
+  id: z.number(),
+  filename: z.string(),
+  ffprobe: z.string(),
+});
+export type dbSourceFileReturn = z.infer<typeof zdbSourceFileReturn>;
+
+export const zSongMetadataMapping = z.object({
+  source_id: z.number(),
+  metadata_id: z.number(),
+});
+export type SongMetadataMapping = z.infer<typeof zSongMetadataMapping>;
 
 /* example ffprobe output:
     "streams": [

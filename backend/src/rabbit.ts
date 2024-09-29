@@ -100,12 +100,16 @@ export class rabbitClient {
    * @param queueName
    * @param callback
    */
-  public async subscribe(queueName: string, callback: (msg: Message) => void) {
+  public async subscribe(
+    queueName: string,
+    callback: (msg: Message) => void,
+    prefetch = 1
+  ) {
     if (!this.channel) {
       throw new Error("subscribe(): Channel null");
     }
     await this.channel.assertQueue(queueName, { durable: true });
-
+    this.channel.prefetch(prefetch);
     this.channel.consume(queueName, (msg: Message | null) => {
       if (msg) {
         callback(msg);

@@ -6,3 +6,4 @@ node_modules/
 dist/
 *.flac
 *.mp3
+backend/uploads
